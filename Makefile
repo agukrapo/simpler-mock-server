@@ -1,4 +1,4 @@
-all: run
+all: tidy test lint run
 
 tidy:
 	go mod tidy

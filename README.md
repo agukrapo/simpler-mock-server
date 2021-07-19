@@ -37,3 +37,10 @@ curl -X PATCH localhost:4321/api/people/a3b69b44-d562-11eb-b8bc-0242ac130003
 curl -X POST localhost:4321/api/people/a3b69b44-d562-11eb-b8bc-0242ac130003
 curl -X PUT localhost:4321/api/people/
 ```
+
+### Run using Docker
+
+```
+docker build -t simpler-mock-server .
+docker run -p 4321:4321 simpler-mock-server
+```
