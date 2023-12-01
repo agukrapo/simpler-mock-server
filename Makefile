@@ -1,7 +1,6 @@
 .DEFAULT_GOAL := all
 
 NAME := $(shell basename $(CURDIR))
-VERSION:=$(shell git describe --abbrev=0 --tags)
 
 all: test format lint
 
@@ -44,6 +43,5 @@ run:
 	@go run ./cmd
 
 docker:
-	@docker build -t simpler-mock-server:${VERSION} .
-	@docker run -p 4321:4321 simpler-mock-server:${VERSION}
-
+	@docker build -t simpler-mock-server .
+	@docker run -p 4321:4321 simpler-mock-server
