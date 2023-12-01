@@ -10,53 +10,82 @@ import (
 )
 
 func main() {
-	loggingSetup()
+	if err := run(); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+}
 
-	rp := getEnv("SIMPLER-MOCK-SERVER_RESPONSES-PATH", "./responses")
-	ctp := getEnv("SIMPLER-MOCK-SERVER_CONTENT_TYPES-PATH", "./content-type-mapping.txt")
-	s, err := server.New(rp, ctp)
+func run() error {
+	cfg, err := setup()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	port := getEnv("SIMPLER-MOCK-SERVER_PORT", "4321")
-	addr := fmt.Sprintf(":%s", port)
+	s, err := server.New(cfg.responsesPath, cfg.contentTypePath)
+	if err != nil {
+		return fmt.Errorf("server.New: %w", err)
+	}
+
 	go func() {
-		if err := s.Start(addr); err != nil {
-			log.Fatal(err)
+		if err := s.Start(cfg.serverAddress); err != nil {
+			log.Error("server.Start: %v", err)
 		}
 	}()
 	defer stop(s)
 
-	log.Infof("Server started on %s", addr)
+	log.Infof("Server started on %s", cfg.serverAddress)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
 	<-quit
+
+	return nil
+
 }
 
-func loggingSetup() {
+func setup() (*config, error) {
 	log.SetLevel(log.DebugLevel)
 
-	lvl := getEnv("SIMPLER-MOCK-SERVER_LOG-LEVEL", "debug")
-	level, err := log.ParseLevel(lvl)
+	cfg := parseConfig()
+
+	level, err := log.ParseLevel(cfg.logLevel)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("log.ParseLevel: %w", err)
 	}
+
 	log.SetLevel(level)
+
+	return cfg, nil
 }
 
-func stop(s *server.Server) {
-	if err := s.Stop(); err != nil {
-		log.Error(err)
+type config struct {
+	logLevel        string
+	responsesPath   string
+	serverAddress   string
+	contentTypePath string
+}
+
+func parseConfig() *config {
+	return &config{
+		logLevel:        getEnv("SIMPLER-MOCK-SERVER_LOG-LEVEL", "debug"),
+		responsesPath:   getEnv("SIMPLER-MOCK-SERVER_RESPONSES-PATH", "./responses"),
+		serverAddress:   getEnv("SIMPLER-MOCK-SERVER_ADDRESS", ":4321"),
+		contentTypePath: getEnv("SIMPLER-MOCK-SERVER_CONTENT_TYPES-PATH", "./content-type-mapping.txt"),
 	}
 }
 
 func getEnv(key, fallback string) string {
-	if v, ok := os.LookupEnv(key); ok {
-		return v
+	if out, ok := os.LookupEnv(key); ok {
+		return out
 	}
 
 	log.Debugf("Env var %s not found, using fallback %q", key, fallback)
 	return fallback
+}
+
+func stop(s *server.Server) {
+	if err := s.Stop(); err != nil {
+		log.Error("server.Stop: %v", err)
+	}
 }
