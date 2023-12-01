@@ -123,7 +123,7 @@ func (s *Server) add(method string, status int, file string) error {
 	r := dir + name
 
 	fn := func(c echo.Context) error {
-		f, err := os.Open(file)
+		f, err := os.Open(filepath.Clean(file))
 		if err != nil {
 			return fmt.Errorf("os.Open: %w", err)
 		}
@@ -210,7 +210,7 @@ func logCalls(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 func contentTypeMapping(path string) (map[string]string, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return nil, err
 	}

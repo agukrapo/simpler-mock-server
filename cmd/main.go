@@ -32,8 +32,7 @@ func main() {
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
-	sig := <-quit
-	log.Infof("Server shutting down due signal %q", sig)
+	<-quit
 }
 
 func loggingSetup() {
