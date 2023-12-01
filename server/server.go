@@ -19,13 +19,13 @@ import (
 )
 
 type Server struct {
-	e      *echo.Echo
-	ctm    map[string]string
-	rp     string
-	routes map[string]struct{}
+	echo         *echo.Echo
+	contentTypes map[string]string
+	resPath      string
+	routes       map[string]struct{}
 }
 
-func New(dir, ctp string) (*Server, error) {
+func New(dir, mappingsPath string) (*Server, error) {
 	if err := validate(dir); err != nil {
 		return nil, err
 	}
@@ -36,43 +36,43 @@ func New(dir, ctp string) (*Server, error) {
 	e.Logger.SetLevel(glog.OFF)
 	e.Use(logCalls)
 
-	ctm, err := contentTypeMapping(ctp)
+	m, err := contentTypeMapping(mappingsPath)
 	if err != nil {
 		return nil, err
 	}
 
-	s := &Server{
-		e:      e,
-		ctm:    ctm,
-		rp:     dir,
-		routes: make(map[string]struct{}),
+	out := &Server{
+		echo:         e,
+		contentTypes: m,
+		resPath:      dir,
+		routes:       make(map[string]struct{}),
 	}
 
-	if err := s.addRoutes(http.MethodDelete, http.StatusAccepted); err != nil {
+	if err := out.addRoutes(http.MethodDelete, http.StatusAccepted); err != nil {
 		return nil, err
 	}
-	if err := s.addRoutes(http.MethodGet, http.StatusOK); err != nil {
+	if err := out.addRoutes(http.MethodGet, http.StatusOK); err != nil {
 		return nil, err
 	}
-	if err := s.addRoutes(http.MethodPatch, http.StatusNoContent); err != nil {
+	if err := out.addRoutes(http.MethodPatch, http.StatusNoContent); err != nil {
 		return nil, err
 	}
-	if err := s.addRoutes(http.MethodPost, http.StatusCreated); err != nil {
+	if err := out.addRoutes(http.MethodPost, http.StatusCreated); err != nil {
 		return nil, err
 	}
-	if err := s.addRoutes(http.MethodPut, http.StatusNoContent); err != nil {
+	if err := out.addRoutes(http.MethodPut, http.StatusNoContent); err != nil {
 		return nil, err
 	}
 
-	if len(s.routes) == 0 {
+	if len(out.routes) == 0 {
 		return nil, errors.New("no routes found")
 	}
 
-	return s, nil
+	return out, nil
 }
 
 func (s *Server) Start(addr string) error {
-	if err := s.e.Start(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := s.echo.Start(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 
@@ -80,10 +80,10 @@ func (s *Server) Start(addr string) error {
 }
 
 func (s *Server) Stop() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	return s.e.Shutdown(ctx)
+	return s.echo.Shutdown(ctx)
 }
 
 func (s *Server) addRoutes(method string, status int) error {
@@ -110,7 +110,7 @@ func (s *Server) add(method string, status int, file string) error {
 		return fmt.Errorf("splitBase: %w", err)
 	}
 
-	ct, ok := s.ctm[ext]
+	ct, ok := s.contentTypes[ext]
 	if !ok {
 		return fmt.Errorf("content-type not found for extension %q", ext)
 	}
@@ -120,7 +120,7 @@ func (s *Server) add(method string, status int, file string) error {
 		return fmt.Errorf("parseStatus: %w", err)
 	}
 
-	r := dir + name
+	route := dir + name
 
 	fn := func(c echo.Context) error {
 		f, err := os.Open(filepath.Clean(file))
@@ -137,14 +137,14 @@ func (s *Server) add(method string, status int, file string) error {
 		return c.Blob(status, ct, b)
 	}
 
-	s.e.Add(method, r, fn)
-	s.e.Add(method, r+"/", fn)
+	s.echo.Add(method, route, fn)
+	s.echo.Add(method, route+"/", fn)
 
-	s.routes[r] = struct{}{}
+	s.routes[route] = struct{}{}
 
 	log.WithFields(log.Fields{
 		"method": method,
-		"route":  r,
+		"route":  route,
 		"file":   file,
 		"status": status,
 	}).Debug("Route added")
@@ -155,7 +155,7 @@ func (s *Server) add(method string, status int, file string) error {
 func (s *Server) paths(dir string) ([]string, error) {
 	var out []string
 
-	root := filepath.Join(s.rp, dir)
+	root := filepath.Join(s.resPath, dir)
 	if err := validate(root); err != nil {
 		log.Warn(err)
 		return out, nil
