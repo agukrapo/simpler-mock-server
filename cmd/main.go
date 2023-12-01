@@ -29,7 +29,7 @@ func run() error {
 
 	go func() {
 		if err := s.Start(cfg.serverAddress); err != nil {
-			log.Error("server.Start: %v", err)
+			log.Errorf("server.Start: %v", err)
 		}
 	}()
 	defer stop(s)
@@ -41,7 +41,6 @@ func run() error {
 	<-quit
 
 	return nil
-
 }
 
 func setup() (*config, error) {
@@ -86,6 +85,6 @@ func getEnv(key, fallback string) string {
 
 func stop(s *server.Server) {
 	if err := s.Stop(); err != nil {
-		log.Error("server.Stop: %v", err)
+		log.Errorf("server.Stop: %v", err)
 	}
 }
