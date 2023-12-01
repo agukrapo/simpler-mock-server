@@ -1,6 +1,6 @@
 module github.com/agukrapo/simpler-mock-server
 
-go 1.16
+go 1.21
 
 require (
 	github.com/labstack/echo/v4 v4.4.0
