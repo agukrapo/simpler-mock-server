@@ -12,7 +12,9 @@ clean:
 
 build: clean
 	@echo "Building ${NAME}..."
-	@go build -o ./bin/${NAME} ./cmd
+	@GOOS=darwin GOARCH=amd64 go build -o ./bin/${NAME}_darwin-amd64 ./cmd
+	@GOOS=windows GOARCH=amd64 go build -o ./bin/${NAME}_windows-amd64.exe ./cmd
+	@GOOS=linux GOARCH=amd64 go build -o ./bin/${NAME}_linux-amd64 ./cmd
 
 test: build
 	@echo "Testing ${NAME}..."
