@@ -16,13 +16,13 @@ Be sure the file extension is inside `content-type-mapping.txt`.
 
 ### Default response status
 
-Method | status
--------| ------
-DELETE | 202
-GET    | 200
-PATCH  | 204
-POST   | 201
-PUT    | 204
+| Method | status |
+|--------|--------|
+| DELETE | 202    |
+| GET    | 200    |
+| PATCH  | 204    |
+| POST   | 201    |
+| PUT    | 204    |
 
 Can be customized adding a prefix `{status}___` to the file:
 
