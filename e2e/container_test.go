@@ -100,4 +100,21 @@ func Test(t *testing.T) {
 		assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
 		assert.Equal(t, string(b), "{\n  \"people\": \"418 I'm a teapot\"\n}")
 	})
+
+	t.Run("PUT", func(t *testing.T) {
+		url := fmt.Sprintf("http://%s/api/people", endpoint)
+		req, err := requests.New(url).Method(http.MethodPut).Build(ctx)
+		require.NoError(t, err)
+
+		res, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		b, err := io.ReadAll(res.Body)
+		require.NoError(t, err)
+
+		assert.Equal(t, http.StatusNoContent, res.StatusCode)
+		assert.Equal(t, "text/csv", res.Header.Get("Content-Type"))
+		assert.Empty(t, b)
+	})
 }
