@@ -32,8 +32,25 @@ func Test(t *testing.T) {
 	endpoint, err := sms.Endpoint(ctx, "")
 	require.NoError(t, err)
 
+	t.Run("DELETE", func(t *testing.T) {
+		url := fmt.Sprintf("http://%s/api/people/a3b69b44-d562-11eb-b8bc-0242ac130003", endpoint)
+		req, err := requests.New(url).Method(http.MethodDelete).Build(ctx)
+		require.NoError(t, err)
+
+		res, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		b, err := io.ReadAll(res.Body)
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusAccepted, res.StatusCode)
+		require.Equal(t, string(b), "simpler-mock-server UP")
+	})
+
 	t.Run("GET", func(t *testing.T) {
-		req, err := requests.New(fmt.Sprintf("http://%s/health", endpoint)).Build(ctx)
+		url := fmt.Sprintf("http://%s/health", endpoint)
+		req, err := requests.New(url).Build(ctx)
 		require.NoError(t, err)
 
 		res, err := http.DefaultClient.Do(req)
