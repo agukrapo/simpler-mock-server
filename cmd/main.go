@@ -25,7 +25,7 @@ func run() error {
 		return err
 	}
 
-	fs, err := filesystem.New(cfg.responsesPath, cfg.extensionContentTypeMapping(), cfg.methodStatusMapping())
+	fs, err := filesystem.New(cfg.ResponsesPath, cfg.ContentTypeMap, cfg.MethodStatusMap)
 	if err != nil {
 		return fmt.Errorf("filesystem.New: %w", err)
 	}
@@ -36,12 +36,12 @@ func run() error {
 	}
 
 	go func() {
-		if err := s.Start(cfg.serverAddress); err != nil {
+		if err := s.Start(cfg.ServerAddress); err != nil {
 			log.Errorf("server.Start: %v", err)
 		}
 	}()
 
-	log.Infof("Server started on %s", cfg.serverAddress)
+	log.Infof("Server started on %s", cfg.ServerAddress)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)

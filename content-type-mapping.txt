@@ -1,6 +1,0 @@
-txt=text/plain
-json=application/json
-yaml=text/yaml
-xml=application/xml
-html=text/html
-csv=text/csv
