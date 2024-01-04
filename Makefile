@@ -15,7 +15,7 @@ build: clean
 	@GOOS=windows GOARCH=amd64 go build -o ./bin/${NAME}_windows-amd64.exe ./cmd
 	@GOOS=linux GOARCH=amd64 go build -o ./bin/${NAME}_linux-amd64 ./cmd
 
-test: build
+test: build docker-build
 	@echo "Testing ${NAME}..."
 	@gotestsum ./... -cover -race -shuffle=on
 
@@ -42,6 +42,8 @@ deps:
 run:
 	@go run ./cmd
 
-docker:
+docker-build:
 	@docker build -t simpler-mock-server .
+
+docker-run: docker-build
 	@docker run -p 4321:4321 simpler-mock-server
