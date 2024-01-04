@@ -83,4 +83,21 @@ func Test(t *testing.T) {
 		assert.Equal(t, "application/xml", res.Header.Get("Content-Type"))
 		assert.Equal(t, string(b), "<people>ok</people>")
 	})
+
+	t.Run("POST", func(t *testing.T) {
+		url := fmt.Sprintf("http://%s/api/people/a3b69b44-d562-11eb-b8bc-0242ac130003", endpoint)
+		req, err := requests.New(url).Method(http.MethodPost).Build(ctx)
+		require.NoError(t, err)
+
+		res, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		b, err := io.ReadAll(res.Body)
+		require.NoError(t, err)
+
+		assert.Equal(t, http.StatusTeapot, res.StatusCode)
+		assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
+		assert.Equal(t, string(b), "{\n  \"people\": \"418 I'm a teapot\"\n}")
+	})
 }
