@@ -1,6 +1,6 @@
 txt=text/plain
 json=application/json
 yaml=text/yaml
-xml=applicaiton/xml
+xml=application/xml
 html=text/html
 csv=text/csv
