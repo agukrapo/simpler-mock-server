@@ -19,7 +19,6 @@ type fs interface {
 
 type Server struct {
 	echo *echo.Echo
-	fs   fs
 }
 
 func New(fs fs) (*Server, error) {

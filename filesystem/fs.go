@@ -106,7 +106,7 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 			Status: status,
 			Type:   ct,
 			Reader: func() (io.ReadCloser, error) {
-				return os.Open(path)
+				return os.Open(filepath.Clean(path))
 			},
 		})
 
