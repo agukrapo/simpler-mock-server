@@ -47,7 +47,7 @@ func Test(t *testing.T) {
 
 		assert.Equal(t, http.StatusAccepted, res.StatusCode)
 		assert.Equal(t, "text/html", res.Header.Get("Content-Type"))
-		assert.Equal(t, string(b), "<html>\n<body>\n<h1>File deleted.</h1>\n</body>\n</html>")
+		assert.Equal(t, "<html>\n<body>\n<h1>File deleted.</h1>\n</body>\n</html>", string(b))
 	})
 
 	t.Run("GET", func(t *testing.T) {
@@ -64,7 +64,7 @@ func Test(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, res.StatusCode)
 		assert.Equal(t, "text/plain", res.Header.Get("Content-Type"))
-		assert.Equal(t, string(b), "simpler-mock-server UP")
+		assert.Equal(t, "simpler-mock-server UP", string(b))
 	})
 
 	t.Run("PATCH", func(t *testing.T) {
@@ -81,7 +81,7 @@ func Test(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, res.StatusCode)
 		assert.Equal(t, "application/xml", res.Header.Get("Content-Type"))
-		assert.Equal(t, string(b), "<people>ok</people>")
+		assert.Equal(t, "<people>ok</people>", string(b))
 	})
 
 	t.Run("POST", func(t *testing.T) {
@@ -98,7 +98,7 @@ func Test(t *testing.T) {
 
 		assert.Equal(t, http.StatusTeapot, res.StatusCode)
 		assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
-		assert.Equal(t, string(b), "{\n  \"people\": \"418 I'm a teapot\"\n}")
+		assert.Equal(t, "{\n  \"people\": \"418 I'm a teapot\"\n}", string(b))
 	})
 
 	t.Run("PUT", func(t *testing.T) {
