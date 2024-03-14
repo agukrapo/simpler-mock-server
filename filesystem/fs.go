@@ -68,9 +68,10 @@ func (fs *FS) Paths() ([]*Descriptor, error) {
 }
 
 func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
-	root := filepath.Join(fs.root, method)
-	if err := validate(root); err != nil {
-		return nil, err
+	root := filepath.Clean(filepath.Join(fs.root, method))
+
+	if _, err := os.Open(root); os.IsNotExist(err) {
+		return nil, nil
 	}
 
 	var out []*Descriptor

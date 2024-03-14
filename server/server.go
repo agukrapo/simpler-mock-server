@@ -46,7 +46,7 @@ func New(fs fs, createMissingRoutes bool) (*Server, error) {
 		count++
 	}
 
-	if count == 0 {
+	if !createMissingRoutes && count == 0 {
 		return nil, errors.New("no routes found")
 	}
 
