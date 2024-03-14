@@ -15,6 +15,9 @@ jobs:
         with:
           go-version: 'stable'
 
+      - name: Build project
+        run: make build
+
       - name: Automatic releases
         uses: "marvinpinto/action-automatic-releases@latest"
         with:

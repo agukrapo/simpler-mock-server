@@ -1,7 +1,5 @@
 .DEFAULT_GOAL := all
 
-NAME := $(shell basename $(CURDIR))
-
 all: test format lint
 
 clean:
@@ -9,9 +7,9 @@ clean:
 	@rm -rf bin
 
 build: clean
-	@GOOS=darwin GOARCH=amd64 go build -o ./bin/${NAME}_darwin-amd64 ./cmd
-	@GOOS=windows GOARCH=amd64 go build -o ./bin/${NAME}_windows-amd64.exe ./cmd
-	@GOOS=linux GOARCH=amd64 go build -o ./bin/${NAME}_linux-amd64 ./cmd
+	@GOOS=darwin GOARCH=amd64 go build -o ./bin/sms_darwin-amd64 ./cmd/sms
+	@GOOS=windows GOARCH=amd64 go build -o ./bin/sms_windows-amd64.exe ./cmd/sms
+	@GOOS=linux GOARCH=amd64 go build -o ./bin/sms_linux-amd64 ./cmd/sms
 
 test: build docker-build
 	@gotestsum ./... -cover -race -shuffle=on
@@ -34,7 +32,7 @@ deps:
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
 run:
-	@go run ./cmd
+	@go run ./cmd/sms
 
 docker-build:
 	@docker build -t simpler-mock-server .
