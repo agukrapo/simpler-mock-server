@@ -15,13 +15,15 @@ import (
 
 type fs interface {
 	Paths() ([]*filesystem.Descriptor, error)
+	Create(*http.Request) (*filesystem.Descriptor, error)
 }
 
 type Server struct {
 	echo *echo.Echo
+	fs   fs
 }
 
-func New(fs fs) (*Server, error) {
+func New(fs fs, createMissingRoutes bool) (*Server, error) {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -30,6 +32,7 @@ func New(fs fs) (*Server, error) {
 
 	out := &Server{
 		echo: e,
+		fs:   fs,
 	}
 
 	paths, err := fs.Paths()
@@ -39,14 +42,16 @@ func New(fs fs) (*Server, error) {
 
 	var count uint8
 	for _, desc := range paths {
-		if err := out.addRoute(desc); err != nil {
-			return nil, err
-		}
+		addRoute(e, desc)
 		count++
 	}
 
 	if count == 0 {
 		return nil, errors.New("no routes found")
+	}
+
+	if createMissingRoutes {
+		echo.NotFoundHandler = out.onNotFound
 	}
 
 	return out, nil
@@ -64,24 +69,24 @@ func (s *Server) Stop(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
 }
 
-func (s *Server) addRoute(desc *filesystem.Descriptor) error {
+func addRoute(e *echo.Echo, desc *filesystem.Descriptor) {
 	handler := func(c echo.Context) error {
 		f, err := desc.Reader()
 		if err != nil {
-			return err
+			return fmt.Errorf("desc.Reader: %w", err)
 		}
 		defer f.Close()
 
 		b, err := io.ReadAll(f)
 		if err != nil {
-			return err
+			return fmt.Errorf("io.ReadAll: %w", err)
 		}
 
 		return c.Blob(desc.Status, desc.Type, b)
 	}
 
-	s.echo.Add(desc.Method, desc.Route, handler)
-	s.echo.Add(desc.Method, desc.Route+"/", handler)
+	e.Add(desc.Method, desc.Route, handler)
+	e.Add(desc.Method, desc.Route+"/", handler)
 
 	log.WithFields(log.Fields{
 		"method": desc.Method,
@@ -89,14 +94,30 @@ func (s *Server) addRoute(desc *filesystem.Descriptor) error {
 		"status": desc.Status,
 		"path":   desc.Path,
 	}).Debug("Route added")
+}
 
-	return nil
+func (s *Server) onNotFound(c echo.Context) error {
+	req := c.Request().Clone(context.Background())
+
+	go func() {
+		desc, err := s.fs.Create(req)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"error": err,
+			}).Error("fs.Create failed")
+			return
+		}
+
+		addRoute(s.echo, desc)
+	}()
+
+	return echo.ErrNotFound
 }
 
 func logCalls(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) (err error) {
 		if err = next(c); err != nil {
-			c.Error(err)
+			c.Error(echo.ErrNotFound)
 		}
 
 		req := c.Request()
@@ -106,9 +127,11 @@ func logCalls(next echo.HandlerFunc) echo.HandlerFunc {
 			"status":  fmt.Sprintf("%d %s", res.Status, http.StatusText(res.Status)),
 		}
 		if err != nil {
-			fields["error"] = err.Error()
+			fields["error"] = err
+			log.WithFields(fields).Error("Call failed")
+		} else {
+			log.WithFields(fields).Debug("Call received")
 		}
-		log.WithFields(fields).Debug("Call received")
 
 		return err
 	}

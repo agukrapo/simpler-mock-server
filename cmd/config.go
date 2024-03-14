@@ -26,11 +26,12 @@ func setup() (*config, error) {
 }
 
 type config struct {
-	LogLevel        string            `env:"LOG_LEVEL" envDefault:"debug"`
-	ResponsesPath   string            `env:"RESPONSES_PATH" envDefault:"./responses"`
-	ServerAddress   string            `env:"SERVER_ADDRESS" envDefault:":4321"`
-	ContentTypeMap  map[string]string `env:"EXTENSION_CONTENT_TYPE_MAP" envDefault:"txt:text/plain,json:application/json,yaml:text/yaml,xml:application/xml,html:text/html,csv:text/csv"`
-	MethodStatusMap map[string]int    `env:"METHOD_STATUS_MAP" envDefault:"DELETE:202,GET:200,PATCH:204,POST:201,PUT:204"`
+	LogLevel            string            `env:"LOG_LEVEL" envDefault:"debug"`
+	ResponsesPath       string            `env:"RESPONSES_PATH" envDefault:"./responses"`
+	ServerAddress       string            `env:"SERVER_ADDRESS" envDefault:":4321"`
+	Ext2ContType        map[string]string `env:"EXTENSION_CONTENT_TYPE_MAP" envDefault:"txt:text/plain,json:application/json,yaml:text/yaml,xml:application/xml,html:text/html,csv:text/csv"`
+	Method2Status       map[string]int    `env:"METHOD_STATUS_MAP" envDefault:"DELETE:202,GET:200,PATCH:204,POST:201,PUT:204"`
+	CreateMissingRoutes bool              `env:"CREATE_MISSING_ROUTES" envDefault:"true"`
 }
 
 func parseConfig() (*config, error) {

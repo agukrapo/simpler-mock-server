@@ -25,12 +25,12 @@ func run() error {
 		return err
 	}
 
-	fs, err := filesystem.New(cfg.ResponsesPath, cfg.ContentTypeMap, cfg.MethodStatusMap)
+	fs, err := filesystem.New(cfg.ResponsesPath, cfg.Ext2ContType, cfg.Method2Status)
 	if err != nil {
 		return fmt.Errorf("filesystem.New: %w", err)
 	}
 
-	s, err := server.New(fs)
+	s, err := server.New(fs, cfg.CreateMissingRoutes)
 	if err != nil {
 		return fmt.Errorf("server.New: %w", err)
 	}

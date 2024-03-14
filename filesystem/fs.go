@@ -3,11 +3,13 @@ package filesystem
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/agukrapo/simpler-mock-server/internal/bimap"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -21,39 +23,40 @@ type Descriptor struct {
 }
 
 type FS struct {
-	root         string
-	contentTypes map[string]string
-	methods      map[string]int
+	root string
+
+	ext2ContType  *bimap.Bimap[string, string]
+	method2Status map[string]int
 }
 
-func New(root string, contentTypes map[string]string, methods map[string]int) (*FS, error) {
+func New(root string, ext2ContType map[string]string, method2Status map[string]int) (*FS, error) {
 	if err := validate(root); err != nil {
 		return nil, err
 	}
 
 	root, err := filepath.Abs(root)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("filepath.Abs: %w", err)
 	}
 
 	return &FS{
-		root:         root,
-		contentTypes: contentTypes,
-		methods:      methods,
+		root:          root,
+		ext2ContType:  bimap.New[string, string](ext2ContType),
+		method2Status: method2Status,
 	}, nil
 }
 
 func (fs *FS) Paths() ([]*Descriptor, error) {
 	var out []*Descriptor
 
-	for method, status := range fs.methods {
+	for method, status := range fs.method2Status {
 		sp, err := fs.subPaths(method, status)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"method": method,
 				"status": status,
 				"error":  err,
-			}).Warnf("Unable to process paths")
+			}).Errorf("Unable to process paths")
 
 			continue
 		}
@@ -89,7 +92,7 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 			return err
 		}
 
-		ct, ok := fs.contentTypes[ext]
+		ct, ok := fs.ext2ContType.GetByKey(ext)
 		if !ok {
 			return fmt.Errorf("content-type not found for extension %q", ext)
 		}
@@ -117,6 +120,39 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 	}
 
 	return out, nil
+}
+
+func (fs *FS) Create(req *http.Request) (*Descriptor, error) {
+	ext := "json"
+	if ct := req.Header.Get("Content-Type"); ct != "" {
+		if e, ok := fs.ext2ContType.GetByValue(ct); ok {
+			ext = e
+		}
+	}
+
+	path := strings.TrimSuffix(req.URL.Path, "/")
+	file := filepath.Clean(filepath.Join(fs.root, req.Method, path+"."+ext))
+
+	if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
+		return nil, fmt.Errorf("os.MkdirAll: %w", err)
+	}
+
+	if _, err := os.Create(file); err != nil {
+		return nil, fmt.Errorf("os.Create: %w", err)
+	}
+
+	ct, _ := fs.ext2ContType.GetByKey(ext)
+
+	return &Descriptor{
+		Method: req.Method,
+		Path:   file,
+		Route:  path,
+		Status: fs.method2Status[req.Method],
+		Type:   ct,
+		Reader: func() (io.ReadCloser, error) {
+			return os.Open(file)
+		},
+	}, nil
 }
 
 func validate(dir string) error {
