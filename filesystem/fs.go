@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/agukrapo/simpler-mock-server/internal/bimap"
+	"github.com/agukrapo/simpler-mock-server/internal/headers"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -90,17 +92,20 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 
 		name, ext, err := splitBase(base)
 		if err != nil {
-			return err
+			log.Error(err)
+			return nil
 		}
 
 		ct, ok := fs.ext2ContType.GetByKey(ext)
 		if !ok {
-			return fmt.Errorf("content-type not found for extension %q", ext)
+			log.Errorf("content-type not found for extension %q", ext)
+			return nil
 		}
 
 		name, status, err := parseStatus(name, status)
 		if err != nil {
-			return fmt.Errorf("parseStatus: %w", err)
+			log.Error(err)
+			return nil
 		}
 
 		out = append(out, &Descriptor{
@@ -125,7 +130,7 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 
 func (fs *FS) Create(req *http.Request) (*Descriptor, error) {
 	ext := "json"
-	if ct := req.Header.Get("Content-Type"); ct != "" {
+	if ct := headers.Accept(req); ct != "" {
 		if e, ok := fs.ext2ContType.GetByValue(ct); ok {
 			ext = e
 		}
@@ -169,13 +174,13 @@ func validate(dir string) error {
 	return nil
 }
 
-func splitBase(base string) (string, string, error) {
-	chunks := strings.Split(base, ".")
-	if len(chunks) != 2 {
-		return "", "", fmt.Errorf("invalid file %q", base)
+func splitBase(path string) (string, string, error) {
+	if path == "" {
+		return "", "", errors.New("input is empty")
 	}
 
-	return chunks[0], chunks[1], nil
+	ext := filepath.Ext(path)
+	return strings.TrimSuffix(path, ext), strings.TrimPrefix(ext, "."), nil
 }
 
 func parseStatus(name string, status int) (string, int, error) {

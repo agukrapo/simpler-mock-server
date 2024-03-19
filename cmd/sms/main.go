@@ -27,20 +27,21 @@ func run() error {
 
 	fs, err := filesystem.New(cfg.ResponsesPath, cfg.Ext2ContType, cfg.Method2Status)
 	if err != nil {
-		return fmt.Errorf("filesystem.New: %w", err)
+		return fmt.Errorf("failed to create filesystem: %w", err)
 	}
 
-	s, err := server.New(fs, cfg.CreateMissingRoutes)
+	s, err := server.New(cfg.ServerAddress, fs)
 	if err != nil {
-		return fmt.Errorf("server.New: %w", err)
+		return fmt.Errorf("failed to create server: %w", err)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
 	go func() {
-		if err := s.Start(cfg.ServerAddress); err != nil {
-			log.Errorf("server.Start: %v", err)
+		if err := s.Start(); err != nil {
+			log.Errorf("Failed to start server: &v %v", err)
+			stop()
 		}
 	}()
 

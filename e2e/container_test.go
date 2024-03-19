@@ -117,4 +117,21 @@ func Test(t *testing.T) {
 		assert.Equal(t, "text/csv", res.Header.Get("Content-Type"))
 		assert.Empty(t, b)
 	})
+
+	t.Run("create route after not found", func(t *testing.T) {
+		url := fmt.Sprintf("http://%s/qwerty", endpoint)
+		req, err := requests.New(url).Build(ctx)
+		require.NoError(t, err)
+
+		res, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+
+		b, err := io.ReadAll(res.Body)
+		require.NoError(t, err)
+
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+		assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
+		assert.Empty(t, b)
+	})
 }

@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/agukrapo/simpler-mock-server/filesystem"
-	"github.com/labstack/echo/v4"
-	glog "github.com/labstack/gommon/log"
+	"github.com/agukrapo/simpler-mock-server/internal/headers"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -18,47 +19,71 @@ type fs interface {
 	Create(*http.Request) (*filesystem.Descriptor, error)
 }
 
-type Server struct {
-	echo *echo.Echo
-	fs   fs
+type route struct {
+	method, path string
 }
 
-func New(fs fs, createMissingRoutes bool) (*Server, error) {
-	e := echo.New()
-	e.HideBanner = true
-	e.HidePort = true
-	e.Logger.SetLevel(glog.OFF)
-	e.Use(logCalls)
+func descriptorToRoute(desc *filesystem.Descriptor) route {
+	return route{
+		method: desc.Method,
+		path:   desc.Route,
+	}
+}
 
+func requestToRoute(req *http.Request) route {
+	return route{
+		method: req.Method,
+		path:   req.URL.Path,
+	}
+}
+
+type dir map[string]*filesystem.Descriptor
+
+func (d dir) resolveDescriptor(req *http.Request) (*filesystem.Descriptor, bool) {
+	if len(d) == 0 {
+		return nil, false
+	}
+
+	ct := headers.Accept(req)
+	if ct == "" {
+		for _, v := range d {
+			return v, true
+		}
+	}
+
+	out, ok := d[ct]
+	return out, ok
+}
+
+type Server struct {
+	s  *http.Server
+	fs fs
+
+	routes map[route]dir
+	mu     sync.RWMutex
+}
+
+func New(address string, fs fs) (*Server, error) {
 	out := &Server{
-		echo: e,
-		fs:   fs,
+		fs:     fs,
+		routes: make(map[route]dir),
 	}
 
-	paths, err := fs.Paths()
-	if err != nil {
+	out.s = &http.Server{
+		Addr:              address,
+		Handler:           http.HandlerFunc(out.handle),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	if err := out.refresh(); err != nil {
 		return nil, err
-	}
-
-	var count uint8
-	for _, desc := range paths {
-		addRoute(e, desc)
-		count++
-	}
-
-	if !createMissingRoutes && count == 0 {
-		return nil, errors.New("no routes found")
-	}
-
-	if createMissingRoutes {
-		echo.NotFoundHandler = out.onNotFound
 	}
 
 	return out, nil
 }
 
-func (s *Server) Start(addr string) error {
-	if err := s.echo.Start(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
+func (s *Server) Start() error {
+	if err := s.s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 
@@ -66,73 +91,106 @@ func (s *Server) Start(addr string) error {
 }
 
 func (s *Server) Stop(ctx context.Context) error {
-	return s.echo.Shutdown(ctx)
+	return s.s.Shutdown(ctx)
 }
 
-func addRoute(e *echo.Echo, desc *filesystem.Descriptor) {
-	handler := func(c echo.Context) error {
-		f, err := desc.Reader()
-		if err != nil {
-			return fmt.Errorf("desc.Reader: %w", err)
-		}
-		defer f.Close()
+func (s *Server) refresh() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-		b, err := io.ReadAll(f)
-		if err != nil {
-			return fmt.Errorf("io.ReadAll: %w", err)
-		}
+	clear(s.routes)
 
-		return c.Blob(desc.Status, desc.Type, b)
+	paths, err := s.fs.Paths()
+	if err != nil {
+		return err
 	}
 
-	e.Add(desc.Method, desc.Route, handler)
-	e.Add(desc.Method, desc.Route+"/", handler)
+	var count uint8
+	for _, desc := range paths {
+		r := descriptorToRoute(desc)
+		if _, ok := s.routes[r]; !ok {
+			s.routes[r] = make(dir)
+		}
+
+		if _, ok := s.routes[r][desc.Type]; ok {
+			log.WithFields(fieldsFromDescriptor(desc)).Warn("Route already exist")
+			continue
+		}
+
+		s.routes[r][desc.Type] = desc
+		log.WithFields(fieldsFromDescriptor(desc)).Debug("Route added")
+
+		count++
+	}
+
+	if count == 0 {
+		return errors.New("no routes found")
+	}
+
+	return nil
+}
+
+func (s *Server) handle(writer http.ResponseWriter, req *http.Request) {
+	desc, err := s.resolveRoute(req)
+	if err != nil {
+		log.Errorf("Resolving route failed: %v", err)
+		http.NotFound(writer, req)
+		return
+	}
+
+	reader, err := desc.Reader()
+	if err != nil {
+		log.WithFields(fieldsFromDescriptor(desc)).Errorf("Reading route failed: %v", err)
+		http.NotFound(writer, req)
+		return
+	}
+	defer reader.Close()
+
+	writer.Header().Set("Content-Type", desc.Type)
+	writer.WriteHeader(desc.Status)
+
+	if _, err := io.Copy(writer, reader); err != nil {
+		log.WithFields(fieldsFromDescriptor(desc)).Errorf("File copy failed failed: %v", err)
+		http.NotFound(writer, req)
+		return
+	}
 
 	log.WithFields(log.Fields{
+		"request": fmt.Sprintf("%s %s", req.Method, req.URL),
+		"status":  fmt.Sprintf("%d %s", desc.Status, http.StatusText(desc.Status)),
+	}).Debug("Call received")
+}
+
+func (s *Server) resolveRoute(req *http.Request) (*filesystem.Descriptor, error) {
+	r := requestToRoute(req)
+	desc, ok := s.routes[r].resolveDescriptor(req)
+	if !ok {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		var err error
+		desc, err = s.fs.Create(req.Clone(context.Background()))
+		if err != nil {
+			return nil, err
+		}
+
+		if s.routes[r] == nil {
+			s.routes[r] = make(dir)
+		}
+
+		s.routes[r][desc.Type] = desc
+		log.WithFields(fieldsFromDescriptor(desc)).Debug("Route added")
+	}
+
+	return desc, nil
+}
+
+func fieldsFromDescriptor(desc *filesystem.Descriptor) log.Fields {
+	return log.Fields{
 		"method": desc.Method,
 		"route":  desc.Route,
 		"status": desc.Status,
 		"path":   desc.Path,
-	}).Debug("Route added")
-}
-
-func (s *Server) onNotFound(c echo.Context) error {
-	req := c.Request().Clone(context.Background())
-
-	go func() {
-		desc, err := s.fs.Create(req)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error": err,
-			}).Error("fs.Create failed")
-			return
-		}
-
-		addRoute(s.echo, desc)
-	}()
-
-	return echo.ErrNotFound
-}
-
-func logCalls(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) (err error) {
-		if err = next(c); err != nil {
-			c.Error(echo.ErrNotFound)
-		}
-
-		req := c.Request()
-		res := c.Response()
-		fields := log.Fields{
-			"request": fmt.Sprintf("%s %s", req.Method, req.URL),
-			"status":  fmt.Sprintf("%d %s", res.Status, http.StatusText(res.Status)),
-		}
-		if err != nil {
-			fields["error"] = err
-			log.WithFields(fields).Error("Call failed")
-		} else {
-			log.WithFields(fields).Debug("Call received")
-		}
-
-		return err
+		"type":   desc.Type,
 	}
 }
