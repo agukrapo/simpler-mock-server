@@ -30,7 +30,7 @@ func run() error {
 		return fmt.Errorf("failed to create filesystem: %w", err)
 	}
 
-	s, err := server.New(cfg.ServerAddress, fs)
+	s, err := server.New(cfg.Address, fs)
 	if err != nil {
 		return fmt.Errorf("failed to create server: %w", err)
 	}
@@ -45,7 +45,7 @@ func run() error {
 		}
 	}()
 
-	log.Infof("Server started on %s", cfg.ServerAddress)
+	log.Infof("Server started on %s", cfg.Address)
 
 	<-ctx.Done()
 

@@ -124,7 +124,7 @@ func (s *Server) refresh() error {
 	}
 
 	if count == 0 {
-		return errors.New("no routes found")
+		log.Warn("No routes found")
 	}
 
 	return nil
