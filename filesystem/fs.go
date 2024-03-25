@@ -233,12 +233,17 @@ func (fs *FS) Create(req *http.Request) (*Descriptor, error) {
 }
 
 func validate(dir string) error {
-	stat, err := os.Stat(dir)
+	f, err := os.Open(filepath.Clean(dir))
 	if err != nil {
 		return err
 	}
 
-	if !stat.IsDir() {
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	if !info.IsDir() {
 		return fmt.Errorf("%s is not a directory", dir)
 	}
 

@@ -93,8 +93,10 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *Server) Stop(ctx context.Context) error {
-	return s.s.Shutdown(ctx)
+func (s *Server) Stop(ctx context.Context) {
+	if err := s.s.Shutdown(ctx); err != nil {
+		log.Error(err)
+	}
 }
 
 func (s *Server) watch(ctx context.Context) {
@@ -109,7 +111,8 @@ func (s *Server) watch(ctx context.Context) {
 			}
 
 			if err := s.refresh(); err != nil {
-				log.Errorf("Refreshing routes failed: %v", err)
+				log.Error(err)
+				s.Stop(ctx)
 			}
 		}
 	}

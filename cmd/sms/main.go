@@ -27,7 +27,7 @@ func run() error {
 
 	fs, err := filesystem.New(cfg.ResponsesDir, cfg.Ext2ContType, cfg.Method2Status)
 	if err != nil {
-		return fmt.Errorf("failed to create filesystem: %w", err)
+		return err
 	}
 	defer fs.Stop()
 
@@ -38,9 +38,9 @@ func run() error {
 
 	go func() {
 		if err := s.Start(ctx); err != nil {
-			log.Errorf("Failed to start server: &v %v", err)
-			stop()
+			log.Error(err)
 		}
+		stop()
 	}()
 
 	log.Infof("Server started on %s", cfg.Address)
@@ -50,9 +50,7 @@ func run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	if err := s.Stop(ctx); err != nil {
-		log.Errorf("server.Stop: %v", err)
-	}
+	s.Stop(ctx)
 
 	return nil
 }
