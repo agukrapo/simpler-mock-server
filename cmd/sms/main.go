@@ -29,17 +29,15 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("failed to create filesystem: %w", err)
 	}
+	defer fs.Stop()
 
-	s, err := server.New(cfg.Address, fs)
-	if err != nil {
-		return fmt.Errorf("failed to create server: %w", err)
-	}
+	s := server.New(cfg.Address, fs)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
 	go func() {
-		if err := s.Start(); err != nil {
+		if err := s.Start(ctx); err != nil {
 			log.Errorf("Failed to start server: &v %v", err)
 			stop()
 		}

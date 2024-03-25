@@ -5,6 +5,7 @@ go 1.22
 require (
 	github.com/agukrapo/go-http-client v1.1.0
 	github.com/caarlos0/env/v10 v10.0.0
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.29.1

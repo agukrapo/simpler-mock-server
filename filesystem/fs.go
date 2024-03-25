@@ -4,14 +4,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/agukrapo/simpler-mock-server/internal/bimap"
 	"github.com/agukrapo/simpler-mock-server/internal/headers"
+	"github.com/fsnotify/fsnotify"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -27,6 +31,11 @@ type Descriptor struct {
 type FS struct {
 	root string
 
+	watcher *fsnotify.Watcher
+	paths   map[string]chan fsnotify.Event
+	mu      sync.Mutex
+	events  chan struct{}
+
 	ext2ContType  *bimap.Bimap[string, string]
 	method2Status map[string]int
 }
@@ -41,14 +50,41 @@ func New(root string, ext2ContType map[string]string, method2Status map[string]i
 		return nil, fmt.Errorf("filepath.Abs: %w", err)
 	}
 
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+
 	return &FS{
 		root:          root,
+		watcher:       watcher,
+		events:        make(chan struct{}),
 		ext2ContType:  bimap.New[string, string](ext2ContType),
 		method2Status: method2Status,
 	}, nil
 }
 
+func (fs *FS) Stop() {
+	if err := fs.watcher.Close(); err != nil {
+		log.Errorf("fs.watcher.Close: %v", err)
+	}
+	close(fs.events)
+}
+
 func (fs *FS) Paths() ([]*Descriptor, error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	if err := validate(fs.root); err != nil {
+		return nil, err
+	}
+
+	fs.resetWatcher()
+
+	if err := fs.watcher.Add(fs.root); err != nil {
+		log.Errorf("watcher.Add: %v", err)
+	}
+
 	var out []*Descriptor
 
 	for method, status := range fs.method2Status {
@@ -66,6 +102,8 @@ func (fs *FS) Paths() ([]*Descriptor, error) {
 		out = append(out, sp...)
 	}
 
+	go fs.eventLoop()
+
 	return out, nil
 }
 
@@ -81,6 +119,12 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+
+		if info.Mode().IsDir() {
+			if err := fs.watcher.Add(path); err != nil {
+				log.Errorf("watcher.Add: %v", err)
+			}
 		}
 
 		if !info.Mode().IsRegular() {
@@ -126,6 +170,33 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 	}
 
 	return out, nil
+}
+
+func (fs *FS) eventLoop() {
+	t := time.AfterFunc(math.MaxInt64, func() {
+		select {
+		case fs.events <- struct{}{}:
+		default:
+		}
+	})
+	t.Stop()
+
+	for {
+		select {
+		case event, ok := <-fs.watcher.Events:
+			if !ok {
+				return
+			}
+			if event.Has(fsnotify.Create) || event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
+				t.Reset(200 * time.Millisecond)
+			}
+		case err, ok := <-fs.watcher.Errors:
+			if !ok {
+				return
+			}
+			log.Errorf("error: %v", err)
+		}
+	}
 }
 
 func (fs *FS) Create(req *http.Request) (*Descriptor, error) {
@@ -195,4 +266,17 @@ func parseStatus(name string, status int) (string, int, error) {
 	}
 
 	return chunks[1], ns, nil
+}
+
+func (fs *FS) Notify() <-chan struct{} {
+	return fs.events
+}
+
+func (fs *FS) resetWatcher() {
+	for p := range fs.paths {
+		if err := fs.watcher.Remove(p); err != nil {
+			log.Errorf("watcher.Remove: %v", err)
+		}
+	}
+	clear(fs.paths)
 }

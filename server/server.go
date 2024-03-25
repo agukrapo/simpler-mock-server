@@ -17,6 +17,7 @@ import (
 type fs interface {
 	Paths() ([]*filesystem.Descriptor, error)
 	Create(*http.Request) (*filesystem.Descriptor, error)
+	Notify() <-chan struct{}
 }
 
 type route struct {
@@ -63,7 +64,7 @@ type Server struct {
 	mu     sync.RWMutex
 }
 
-func New(address string, fs fs) (*Server, error) {
+func New(address string, fs fs) *Server {
 	out := &Server{
 		fs:     fs,
 		routes: make(map[route]dir),
@@ -75,14 +76,16 @@ func New(address string, fs fs) (*Server, error) {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	if err := out.refresh(); err != nil {
-		return nil, err
-	}
-
-	return out, nil
+	return out
 }
 
-func (s *Server) Start() error {
+func (s *Server) Start(ctx context.Context) error {
+	if err := s.refresh(); err != nil {
+		return err
+	}
+
+	go s.watch(ctx)
+
 	if err := s.s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
@@ -94,7 +97,26 @@ func (s *Server) Stop(ctx context.Context) error {
 	return s.s.Shutdown(ctx)
 }
 
+func (s *Server) watch(ctx context.Context) {
+	c := s.fs.Notify()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case _, ok := <-c:
+			if !ok {
+				return
+			}
+
+			if err := s.refresh(); err != nil {
+				log.Errorf("Refreshing routes failed: %v", err)
+			}
+		}
+	}
+}
+
 func (s *Server) refresh() error {
+	log.Debug("Refreshing routes...")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
