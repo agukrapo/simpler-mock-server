@@ -50,9 +50,6 @@ curl -X PUT localhost:4321/api/people/
 - `METHOD_STATUS_MAP` (default: `DELETE:202,GET:200,PATCH:204,POST:201,PUT:204`)
 
 
-## Run using Docker
-
-```
-docker build -t simpler-mock-server .
-docker run -p 4321:4321 simpler-mock-server
-```
+# TODO
+- Better README
+- CLI help
