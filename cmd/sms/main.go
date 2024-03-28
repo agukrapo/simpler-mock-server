@@ -25,7 +25,7 @@ func run() error {
 		return err
 	}
 
-	fs, err := filesystem.New(cfg.ResponsesDir, cfg.Ext2ContType, cfg.Method2Status)
+	fs, err := filesystem.New(cfg.ResponsesDir, cfg.Ext2MIMEType, cfg.Method2Status)
 	if err != nil {
 		return err
 	}

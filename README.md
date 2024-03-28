@@ -46,10 +46,11 @@ curl -X PUT localhost:4321/api/people/
 - `ADDRESS` (default: `:$PORT`)
 - `LOG_LEVEL` (default: `debug`)
 - `RESPONSES_DIR` (default: `./.sms_responses`)
-- `EXTENSION_CONTENT_TYPE_MAP` (default: `txt:text/plain,json:application/json,yaml:text/yaml,xml:application/xml,html:text/html,csv:text/csv`)
+- `EXTENSION_MIME_TYPE_MAP` (default: `txt:text/plain,json:application/json,yaml:text/yaml,xml:application/xml,html:text/html,csv:text/csv`)
 - `METHOD_STATUS_MAP` (default: `DELETE:202,GET:200,PATCH:204,POST:201,PUT:204`)
 
 
 # TODO
 - Better README
 - CLI help
+- Test `Accept` header with [MIME types](https://link-url-here.org): `application/xhtml+xml`, `image/png`, etc.

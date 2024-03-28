@@ -36,11 +36,11 @@ type FS struct {
 	mu      sync.Mutex
 	events  chan struct{}
 
-	ext2ContType  *bimap.Bimap[string, string]
+	ext2MIMEType  *bimap.Bimap[string, string]
 	method2Status map[string]int
 }
 
-func New(root string, ext2ContType map[string]string, method2Status map[string]int) (*FS, error) {
+func New(root string, ext2MIMEType map[string]string, method2Status map[string]int) (*FS, error) {
 	if err := validate(root); err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func New(root string, ext2ContType map[string]string, method2Status map[string]i
 		root:          root,
 		watcher:       watcher,
 		events:        make(chan struct{}),
-		ext2ContType:  bimap.New[string, string](ext2ContType),
+		ext2MIMEType:  bimap.New[string, string](ext2MIMEType),
 		method2Status: method2Status,
 	}, nil
 }
@@ -140,7 +140,7 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 			return nil
 		}
 
-		ct, ok := fs.ext2ContType.GetByKey(ext)
+		ct, ok := fs.ext2MIMEType.GetByKey(ext)
 		if !ok {
 			log.Errorf("content-type not found for extension %q", ext)
 			return nil
@@ -202,7 +202,7 @@ func (fs *FS) eventLoop() {
 func (fs *FS) Create(req *http.Request) (*Descriptor, error) {
 	ext := "json"
 	if ct := headers.Accept(req); ct != "" {
-		if e, ok := fs.ext2ContType.GetByValue(ct); ok {
+		if e, ok := fs.ext2MIMEType.GetByValue(ct); ok {
 			ext = e
 		}
 	}
@@ -218,7 +218,7 @@ func (fs *FS) Create(req *http.Request) (*Descriptor, error) {
 		return nil, fmt.Errorf("os.Create: %w", err)
 	}
 
-	ct, _ := fs.ext2ContType.GetByKey(ext)
+	ct, _ := fs.ext2MIMEType.GetByKey(ext)
 
 	return &Descriptor{
 		Method: req.Method,

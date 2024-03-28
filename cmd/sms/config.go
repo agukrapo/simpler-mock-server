@@ -30,7 +30,7 @@ type config struct {
 	Address       string            `env:"ADDRESS,expand" envDefault:":$PORT"`
 	LogLevel      string            `env:"LOG_LEVEL" envDefault:"debug"`
 	ResponsesDir  string            `env:"RESPONSES_DIR" envDefault:"./.sms_responses"`
-	Ext2ContType  map[string]string `env:"EXTENSION_CONTENT_TYPE_MAP" envDefault:"txt:text/plain,json:application/json,yaml:text/yaml,xml:application/xml,html:text/html,csv:text/csv"`
+	Ext2MIMEType  map[string]string `env:"EXTENSION_MIME_TYPE_MAP" envDefault:"txt:text/plain,json:application/json,yaml:text/yaml,xml:application/xml,html:text/html,csv:text/csv"`
 	Method2Status map[string]int    `env:"METHOD_STATUS_MAP" envDefault:"DELETE:202,GET:200,PATCH:204,POST:201,PUT:204"`
 }
 
