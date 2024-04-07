@@ -53,4 +53,4 @@ curl -X PUT localhost:4321/api/people/
 # TODO
 - Better README
 - CLI help
-- Test `Accept` header with [MIME types](https://link-url-here.org): `application/xhtml+xml`, `image/png`, etc.
+- https://github.com/charmbracelet/log

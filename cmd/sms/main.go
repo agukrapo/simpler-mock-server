@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/agukrapo/simpler-mock-server/filesystem"
+	"github.com/agukrapo/simpler-mock-server/internal/mime"
 	"github.com/agukrapo/simpler-mock-server/server"
 	log "github.com/sirupsen/logrus"
 )
@@ -25,7 +26,7 @@ func run() error {
 		return err
 	}
 
-	fs, err := filesystem.New(cfg.ResponsesDir, cfg.Ext2MIMEType, cfg.Method2Status)
+	fs, err := filesystem.New(cfg.ResponsesDir, mime.New(cfg.Ext2MIMEType), cfg.Method2Status)
 	if err != nil {
 		return err
 	}

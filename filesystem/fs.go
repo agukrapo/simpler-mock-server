@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/agukrapo/simpler-mock-server/internal/bimap"
 	"github.com/agukrapo/simpler-mock-server/internal/headers"
+	"github.com/agukrapo/simpler-mock-server/internal/mime"
 	"github.com/fsnotify/fsnotify"
 	log "github.com/sirupsen/logrus"
 )
@@ -24,7 +24,7 @@ type Descriptor struct {
 	Path   string
 	Route  string
 	Status int
-	Type   string
+	Type   mime.Type
 	Reader func() (io.ReadCloser, error)
 }
 
@@ -36,11 +36,12 @@ type FS struct {
 	mu      sync.Mutex
 	events  chan struct{}
 
-	ext2MIMEType  *bimap.Bimap[string, string]
+	types *mime.Types
+
 	method2Status map[string]int
 }
 
-func New(root string, ext2MIMEType map[string]string, method2Status map[string]int) (*FS, error) {
+func New(root string, types *mime.Types, method2Status map[string]int) (*FS, error) {
 	if err := validate(root); err != nil {
 		return nil, err
 	}
@@ -59,7 +60,7 @@ func New(root string, ext2MIMEType map[string]string, method2Status map[string]i
 		root:          root,
 		watcher:       watcher,
 		events:        make(chan struct{}),
-		ext2MIMEType:  bimap.New[string, string](ext2MIMEType),
+		types:         types,
 		method2Status: method2Status,
 	}, nil
 }
@@ -140,12 +141,6 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 			return nil
 		}
 
-		ct, ok := fs.ext2MIMEType.GetByKey(ext)
-		if !ok {
-			log.Errorf("content-type not found for extension %q", ext)
-			return nil
-		}
-
 		name, status, err := parseStatus(name, status)
 		if err != nil {
 			log.Error(err)
@@ -157,7 +152,7 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 			Path:   path,
 			Route:  dir + name,
 			Status: status,
-			Type:   ct,
+			Type:   fs.types.Type(mime.Extension(ext)),
 			Reader: func() (io.ReadCloser, error) {
 				return os.Open(filepath.Clean(path))
 			},
@@ -200,15 +195,9 @@ func (fs *FS) eventLoop() {
 }
 
 func (fs *FS) Create(req *http.Request) (*Descriptor, error) {
-	ext := "json"
-	if ct := headers.Accept(req); ct != "" {
-		if e, ok := fs.ext2MIMEType.GetByValue(ct); ok {
-			ext = e
-		}
-	}
-
+	ext := fs.types.Extension(headers.Accept(req))
 	path := strings.TrimSuffix(req.URL.Path, "/")
-	file := filepath.Clean(filepath.Join(fs.root, req.Method, path+"."+ext))
+	file := filepath.Clean(filepath.Join(fs.root, req.Method, fmt.Sprintf("%s.%s", path, ext)))
 
 	if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
 		return nil, fmt.Errorf("os.MkdirAll: %w", err)
@@ -218,14 +207,12 @@ func (fs *FS) Create(req *http.Request) (*Descriptor, error) {
 		return nil, fmt.Errorf("os.Create: %w", err)
 	}
 
-	ct, _ := fs.ext2MIMEType.GetByKey(ext)
-
 	return &Descriptor{
 		Method: req.Method,
 		Path:   file,
 		Route:  path,
 		Status: fs.method2Status[req.Method],
-		Type:   ct,
+		Type:   fs.types.Type(ext),
 		Reader: func() (io.ReadCloser, error) {
 			return os.Open(file)
 		},

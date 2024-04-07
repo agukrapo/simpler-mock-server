@@ -11,6 +11,7 @@ import (
 
 	"github.com/agukrapo/simpler-mock-server/filesystem"
 	"github.com/agukrapo/simpler-mock-server/internal/headers"
+	"github.com/agukrapo/simpler-mock-server/internal/mime"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -38,7 +39,7 @@ func requestToRoute(req *http.Request) route {
 	}
 }
 
-type dir map[string]*filesystem.Descriptor
+type dir map[mime.Type]*filesystem.Descriptor
 
 func (d dir) resolveDescriptor(req *http.Request) (*filesystem.Descriptor, bool) {
 	if len(d) == 0 {
@@ -171,7 +172,7 @@ func (s *Server) handle(writer http.ResponseWriter, req *http.Request) {
 	}
 	defer reader.Close()
 
-	writer.Header().Set("Content-Type", desc.Type)
+	writer.Header().Set("Content-Type", string(desc.Type))
 	writer.WriteHeader(desc.Status)
 
 	if _, err := io.Copy(writer, reader); err != nil {
