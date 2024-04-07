@@ -12,7 +12,7 @@ import (
 	"github.com/agukrapo/simpler-mock-server/filesystem"
 	"github.com/agukrapo/simpler-mock-server/internal/headers"
 	"github.com/agukrapo/simpler-mock-server/internal/mime"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type fs interface {
@@ -96,7 +96,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 func (s *Server) Stop(ctx context.Context) {
 	if err := s.s.Shutdown(ctx); err != nil {
-		log.Error(err)
+		log.Error().Err(err).Msg("Server shutdown failed")
 	}
 }
 
@@ -112,7 +112,7 @@ func (s *Server) watch(ctx context.Context) {
 			}
 
 			if err := s.refresh(); err != nil {
-				log.Error(err)
+				log.Error().Err(err).Msg("Routes refresh failed")
 				s.Stop(ctx)
 			}
 		}
@@ -120,7 +120,7 @@ func (s *Server) watch(ctx context.Context) {
 }
 
 func (s *Server) refresh() error {
-	log.Debug("Refreshing routes...")
+	log.Info().Msg("Refreshing routes...")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -139,18 +139,18 @@ func (s *Server) refresh() error {
 		}
 
 		if _, ok := s.routes[r][desc.Type]; ok {
-			log.WithFields(fieldsFromDescriptor(desc)).Warn("Route already exist")
+			log.Warn().Fields(fieldsFromDescriptor(desc)).Msg("Route already exist")
 			continue
 		}
 
 		s.routes[r][desc.Type] = desc
-		log.WithFields(fieldsFromDescriptor(desc)).Debug("Route added")
+		log.Debug().Fields(fieldsFromDescriptor(desc)).Msg("Route added")
 
 		count++
 	}
 
 	if count == 0 {
-		log.Warn("No routes found")
+		log.Warn().Msg("No routes found")
 	}
 
 	return nil
@@ -159,14 +159,14 @@ func (s *Server) refresh() error {
 func (s *Server) handle(writer http.ResponseWriter, req *http.Request) {
 	desc, err := s.resolveRoute(req)
 	if err != nil {
-		log.Errorf("Resolving route failed: %v", err)
+		log.Error().Err(err).Msg("Resolving route failed")
 		http.NotFound(writer, req)
 		return
 	}
 
 	reader, err := desc.Reader()
 	if err != nil {
-		log.WithFields(fieldsFromDescriptor(desc)).Errorf("Reading route failed: %v", err)
+		log.Error().Err(err).Fields(fieldsFromDescriptor(desc)).Msg("Reading route failed")
 		http.NotFound(writer, req)
 		return
 	}
@@ -176,15 +176,12 @@ func (s *Server) handle(writer http.ResponseWriter, req *http.Request) {
 	writer.WriteHeader(desc.Status)
 
 	if _, err := io.Copy(writer, reader); err != nil {
-		log.WithFields(fieldsFromDescriptor(desc)).Errorf("File copy failed failed: %v", err)
+		log.Error().Fields(fieldsFromDescriptor(desc)).Msg("File copy failed")
 		http.NotFound(writer, req)
 		return
 	}
 
-	log.WithFields(log.Fields{
-		"request": fmt.Sprintf("%s %s", req.Method, req.URL),
-		"status":  fmt.Sprintf("%d %s", desc.Status, http.StatusText(desc.Status)),
-	}).Debug("Call received")
+	log.Debug().Str("request", fmt.Sprintf("%s %s", req.Method, req.URL)).Str("status", fmt.Sprintf("%d %s", desc.Status, http.StatusText(desc.Status))).Msg("Call received")
 }
 
 func (s *Server) resolveRoute(req *http.Request) (*filesystem.Descriptor, error) {
@@ -205,14 +202,14 @@ func (s *Server) resolveRoute(req *http.Request) (*filesystem.Descriptor, error)
 		}
 
 		s.routes[r][desc.Type] = desc
-		log.WithFields(fieldsFromDescriptor(desc)).Debug("Route added")
+		log.Debug().Fields(fieldsFromDescriptor(desc)).Msg("Route added")
 	}
 
 	return desc, nil
 }
 
-func fieldsFromDescriptor(desc *filesystem.Descriptor) log.Fields {
-	return log.Fields{
+func fieldsFromDescriptor(desc *filesystem.Descriptor) map[string]interface{} {
+	return map[string]interface{}{
 		"method": desc.Method,
 		"route":  desc.Route,
 		"status": desc.Status,

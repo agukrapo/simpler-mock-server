@@ -16,7 +16,7 @@ import (
 	"github.com/agukrapo/simpler-mock-server/internal/headers"
 	"github.com/agukrapo/simpler-mock-server/internal/mime"
 	"github.com/fsnotify/fsnotify"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type Descriptor struct {
@@ -67,7 +67,7 @@ func New(root string, types *mime.Types, method2Status map[string]int) (*FS, err
 
 func (fs *FS) Stop() {
 	if err := fs.watcher.Close(); err != nil {
-		log.Errorf("fs.watcher.Close: %v", err)
+		log.Error().Err(err).Msg("Failed to close filesystem watcher")
 	}
 	close(fs.events)
 }
@@ -83,7 +83,7 @@ func (fs *FS) Paths() ([]*Descriptor, error) {
 	fs.resetWatcher()
 
 	if err := fs.watcher.Add(fs.root); err != nil {
-		log.Errorf("watcher.Add: %v", err)
+		log.Error().Err(err).Msgf("Failed to watch %s dir", fs.root)
 	}
 
 	var out []*Descriptor
@@ -91,11 +91,7 @@ func (fs *FS) Paths() ([]*Descriptor, error) {
 	for method, status := range fs.method2Status {
 		sp, err := fs.subPaths(method, status)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"method": method,
-				"status": status,
-				"error":  err,
-			}).Errorf("Unable to process paths")
+			log.Error().Str("method", method).Int("status", status).Err(err).Msg("Failed to process paths")
 
 			continue
 		}
@@ -124,7 +120,7 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 
 		if info.Mode().IsDir() {
 			if err := fs.watcher.Add(path); err != nil {
-				log.Errorf("watcher.Add: %v", err)
+				log.Error().Err(err).Msgf("Failed to watch %s dir", path)
 			}
 		}
 
@@ -137,19 +133,19 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 
 		name, ext, err := splitBase(base)
 		if err != nil {
-			log.Error(err)
+			log.Error().Err(err).Msgf("Failed to split path %s", base)
 			return nil
 		}
 
 		name, status, err := parseStatus(name, status)
 		if err != nil {
-			log.Error(err)
+			log.Error().Err(err).Msgf("Failed to parse status from name %s", name)
 			return nil
 		}
 
 		out = append(out, &Descriptor{
 			Method: method,
-			Path:   path,
+			Path:   strings.TrimPrefix(path, filepath.Dir(fs.root)+"/"),
 			Route:  dir + name,
 			Status: status,
 			Type:   fs.types.Type(mime.Extension(ext)),
@@ -189,7 +185,8 @@ func (fs *FS) eventLoop() {
 			if !ok {
 				return
 			}
-			log.Errorf("error: %v", err)
+
+			log.Error().Err(err).Msg("Filesystem watcher failed")
 		}
 	}
 }
@@ -210,7 +207,7 @@ func (fs *FS) Create(req *http.Request) (*Descriptor, error) {
 	return &Descriptor{
 		Method: req.Method,
 		Path:   file,
-		Route:  path,
+		Route:  strings.TrimPrefix(path, filepath.Dir(fs.root)+"/"),
 		Status: fs.method2Status[req.Method],
 		Type:   fs.types.Type(ext),
 		Reader: func() (io.ReadCloser, error) {
@@ -267,7 +264,7 @@ func (fs *FS) Notify() <-chan struct{} {
 func (fs *FS) resetWatcher() {
 	for p := range fs.paths {
 		if err := fs.watcher.Remove(p); err != nil {
-			log.Errorf("watcher.Remove: %v", err)
+			log.Error().Err(err).Msgf("Filed to unwatch path %v", p)
 		}
 	}
 	clear(fs.paths)

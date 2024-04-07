@@ -2,7 +2,7 @@ package mime
 
 import (
 	"github.com/agukrapo/simpler-mock-server/internal/bimap"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type (
@@ -33,7 +33,7 @@ func (t *Types) Extension(in Type) Extension {
 	if ext, ok := t.mapping.GetByValue(in); ok {
 		return ext
 	}
-	log.Warnf("Unmapped MIME type %q", in)
+	log.Warn().Msgf("Unmapped MIME type %q", in)
 	return "json"
 }
 
@@ -45,7 +45,7 @@ func (t *Types) Type(in Extension) Type {
 	if ext, ok := t.mapping.GetByKey(in); ok {
 		return ext
 	}
-	log.Warnf("Unmapped extension %q", in)
+	log.Warn().Msgf("Unmapped extension %q", in)
 	return "application/json"
 }
 

@@ -53,4 +53,4 @@ curl -X PUT localhost:4321/api/people/
 # TODO
 - Better README
 - CLI help
-- https://github.com/charmbracelet/log
+

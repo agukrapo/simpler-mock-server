@@ -2,25 +2,29 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/caarlos0/env/v10"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func setup() (*config, error) {
-	log.SetLevel(log.DebugLevel)
+	log.Logger = log.Output(zerolog.NewConsoleWriter(func(w *zerolog.ConsoleWriter) {
+		w.TimeFormat = time.TimeOnly
+	}))
 
 	cfg, err := parseConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	level, err := log.ParseLevel(cfg.LogLevel)
+	level, err := zerolog.ParseLevel(cfg.LogLevel)
 	if err != nil {
 		return nil, fmt.Errorf("log.ParseLevel: %w", err)
 	}
 
-	log.SetLevel(level)
+	zerolog.SetGlobalLevel(level)
 
 	return cfg, nil
 }

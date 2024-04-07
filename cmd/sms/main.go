@@ -10,7 +10,7 @@ import (
 	"github.com/agukrapo/simpler-mock-server/filesystem"
 	"github.com/agukrapo/simpler-mock-server/internal/mime"
 	"github.com/agukrapo/simpler-mock-server/server"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
@@ -39,12 +39,12 @@ func run() error {
 
 	go func() {
 		if err := s.Start(ctx); err != nil {
-			log.Error(err)
+			log.Error().Err(err).Msg("Server start failed")
 		}
 		stop()
 	}()
 
-	log.Infof("Server started on %s", cfg.Address)
+	log.Info().Msgf("Server started on %s", cfg.Address)
 
 	<-ctx.Done()
 
