@@ -13,8 +13,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var version = "development"
-
 func main() {
 	if err := run(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)

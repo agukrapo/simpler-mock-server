@@ -3,9 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"runtime/debug"
 )
 
-const help = `sms is a minimalistic mock http server that uses a filesystem as backend
+var version = ""
+
+const helpText = `sms is a minimalistic mock http server that uses a filesystem as backend
 
 Usage:
 
@@ -30,14 +33,28 @@ func processFlags() (stop bool) {
 	flag.Parse()
 
 	if v != nil && *v {
-		fmt.Println(version)
+		if version != "" {
+			fmt.Println(version)
+		}
+
+		if bi, ok := debug.ReadBuildInfo(); ok {
+			fmt.Printf(bi.Main.Version)
+		}
+
 		return true
 	}
 
 	if h != nil && *h {
-		fmt.Print(help)
+		fmt.Print(helpText)
 		return true
 	}
+
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		panic("couldn't read build info")
+	}
+
+	fmt.Printf("%s version %s\n", bi.Path, bi.Main.Version)
 
 	return false
 }
