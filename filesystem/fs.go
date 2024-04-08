@@ -204,10 +204,14 @@ func (fs *FS) Create(req *http.Request) (*Descriptor, error) {
 		return nil, fmt.Errorf("os.Create: %w", err)
 	}
 
+	if path == "" {
+		path = "/"
+	}
+
 	return &Descriptor{
 		Method: req.Method,
-		Path:   file,
-		Route:  strings.TrimPrefix(path, filepath.Dir(fs.root)+"/"),
+		Path:   strings.TrimPrefix(file, filepath.Dir(fs.root)+"/"),
+		Route:  path,
 		Status: fs.method2Status[req.Method],
 		Type:   fs.types.Type(ext),
 		Reader: func() (io.ReadCloser, error) {

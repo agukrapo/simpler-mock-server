@@ -202,7 +202,7 @@ func (s *Server) resolveRoute(req *http.Request) (*filesystem.Descriptor, error)
 		}
 
 		s.routes[r][desc.Type] = desc
-		log.Debug().Fields(fieldsFromDescriptor(desc)).Msg("Route added")
+		log.Debug().Fields(fieldsFromDescriptor(desc)).Msg("Route created")
 	}
 
 	return desc, nil
