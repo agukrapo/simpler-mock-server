@@ -1,6 +1,6 @@
 # simpler-mock-server
 
-A minimalistic mock http server
+SMS is a minimalistic mock http server that uses a filesystem as backend.
 
 ## Usage
 
@@ -28,29 +28,15 @@ Can be customized adding a prefix `{status}___` to the file:
 
 	500___a3b69b44-d562-11eb-b8bc-0242ac130003.json
 
-## Example endpoints
-
-Executing `make run` in the project directory will make these endpoints available
-
-```
-curl -X DELETE localhost:4321/api/people/a3b69b44-d562-11eb-b8bc-0242ac130003
-curl -X GET localhost:4321/health
-curl -X PATCH localhost:4321/api/people/a3b69b44-d562-11eb-b8bc-0242ac130003
-curl -X POST localhost:4321/api/people/a3b69b44-d562-11eb-b8bc-0242ac130003
-curl -X PUT localhost:4321/api/people/
-```
-
 ## Environment Variables
 
 - `PORT` (default: `4321`)
 - `ADDRESS` (default: `:$PORT`)
 - `LOG_LEVEL` (default: `debug`)
-- `RESPONSES_DIR` (default: `./.sms_responses`)
-- `EXTENSION_MIME_TYPE_MAP` (default: `txt:text/plain,json:application/json,yaml:text/yaml,xml:application/xml,html:text/html,csv:text/csv`)
-- `METHOD_STATUS_MAP` (default: `DELETE:202,GET:200,PATCH:204,POST:201,PUT:204`)
+- `RESPONSES_DIR` - Directory where the response files are located (default: `./.sms_responses`)
+- `EXTENSION_MIME_TYPE_MAP` - File extension to http request Accept MIME type, e.g. `txt:text/plain`
+- `METHOD_STATUS_MAP` - Request http method to response http status (default: `DELETE:202,GET:200,PATCH:204,POST:201,PUT:204`)
 
 
 # TODO
 - Better README
-- CLI help
-

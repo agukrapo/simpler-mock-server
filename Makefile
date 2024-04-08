@@ -6,10 +6,12 @@ clean:
 	@go clean -i ./...
 	@rm -rf bin
 
+BUILD_FLAG := -ldflags '-X main.version=$(shell git describe --tags)'
+
 build: clean
-	@GOOS=darwin GOARCH=amd64 go build -o ./bin/sms_darwin-amd64 ./cmd/sms
-	@GOOS=windows GOARCH=amd64 go build -o ./bin/sms_windows-amd64.exe ./cmd/sms
-	@GOOS=linux GOARCH=amd64 go build -o ./bin/sms_linux-amd64 ./cmd/sms
+	@GOOS=darwin GOARCH=amd64 go build $(BUILD_FLAG) -o ./bin/sms_darwin-amd64 ./cmd/sms
+	@GOOS=windows GOARCH=amd64 go build $(BUILD_FLAG) -o ./bin/sms_windows-amd64.exe ./cmd/sms
+	@GOOS=linux GOARCH=amd64 go build $(BUILD_FLAG) -o ./bin/sms_linux-amd64 ./cmd/sms
 
 test: build docker-build
 	@gotestsum ./... -cover -race -shuffle=on
