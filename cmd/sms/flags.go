@@ -6,6 +6,7 @@ import (
 	"runtime/debug"
 )
 
+// version is intended to be used with the -ldflags switch.
 var version = ""
 
 const helpText = `sms is a minimalistic mock http server that uses a filesystem as backend
