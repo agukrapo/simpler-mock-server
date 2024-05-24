@@ -25,6 +25,7 @@ type Descriptor struct {
 	Route  string
 	Status int
 	Type   mime.Type
+	Delay  time.Duration
 	Reader func() (io.ReadCloser, error)
 }
 
@@ -131,15 +132,15 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 		dir, base := filepath.Split(path)
 		dir = strings.TrimPrefix(dir, filepath.Join(fs.root, method))
 
-		name, ext, err := splitBase(base)
+		filename, ext, err := splitBase(base)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to split path %s", base)
 			return nil
 		}
 
-		name, status, err := parseStatus(name, status)
+		name, status, delay, err := parsePrefix(filename, status)
 		if err != nil {
-			log.Error().Err(err).Msgf("Failed to parse status from name %s", name)
+			log.Error().Err(err).Msgf("Failed to parse prefix from filename %s", filename)
 			return nil
 		}
 
@@ -149,6 +150,7 @@ func (fs *FS) subPaths(method string, status int) ([]*Descriptor, error) {
 			Route:  dir + name,
 			Status: status,
 			Type:   fs.types.Type(mime.Extension(ext)),
+			Delay:  delay,
 			Reader: func() (io.ReadCloser, error) {
 				return os.Open(filepath.Clean(path))
 			},
@@ -196,7 +198,7 @@ func (fs *FS) Create(req *http.Request) (*Descriptor, error) {
 	path := strings.TrimSuffix(req.URL.Path, "/")
 	file := filepath.Clean(filepath.Join(fs.root, req.Method, fmt.Sprintf("%s.%s", path, ext)))
 
-	if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(file), 0o750); err != nil {
 		return nil, fmt.Errorf("os.MkdirAll: %w", err)
 	}
 
@@ -247,18 +249,40 @@ func splitBase(path string) (string, string, error) {
 	return strings.TrimSuffix(path, ext), strings.TrimPrefix(ext, "."), nil
 }
 
-func parseStatus(name string, status int) (string, int, error) {
+func parsePrefix(name string, status int) (string, int, time.Duration, error) {
 	chunks := strings.Split(name, "___")
 	if len(chunks) != 2 {
-		return name, status, nil
+		return name, status, 0, nil
 	}
 
-	ns, err := strconv.Atoi(chunks[0])
-	if err != nil {
-		return "", 0, fmt.Errorf("invalid status %q: %w", chunks[0], err)
+	name = chunks[1]
+
+	var (
+		delay time.Duration
+		ok    bool
+	)
+
+	for _, part := range strings.Split(chunks[0], ".") {
+		ns, err := strconv.Atoi(part)
+		if err == nil {
+			status = ns
+			ok = true
+			continue
+		}
+
+		duration, err := time.ParseDuration(part)
+		if err == nil {
+			delay = duration
+			ok = true
+			continue
+		}
 	}
 
-	return chunks[1], ns, nil
+	if !ok {
+		return name, status, delay, fmt.Errorf("invalid prefix %s", chunks[0])
+	}
+
+	return name, status, delay, nil
 }
 
 func (fs *FS) Notify() <-chan struct{} {

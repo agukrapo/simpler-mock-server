@@ -164,6 +164,8 @@ func (s *Server) handle(writer http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	time.Sleep(desc.Delay)
+
 	reader, err := desc.Reader()
 	if err != nil {
 		log.Error().Err(err).Fields(fieldsFromDescriptor(desc)).Msg("Reading route failed")
@@ -209,11 +211,17 @@ func (s *Server) resolveRoute(req *http.Request) (*filesystem.Descriptor, error)
 }
 
 func fieldsFromDescriptor(desc *filesystem.Descriptor) map[string]interface{} {
-	return map[string]interface{}{
+	out := map[string]interface{}{
 		"method": desc.Method,
 		"route":  desc.Route,
 		"status": desc.Status,
 		"path":   desc.Path,
 		"type":   desc.Type,
 	}
+
+	if desc.Delay != 0 {
+		out["delay"] = desc.Delay
+	}
+
+	return out
 }
