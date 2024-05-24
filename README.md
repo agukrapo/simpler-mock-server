@@ -5,14 +5,10 @@ SMS is a minimalistic mock http server that uses a filesystem as backend.
 ## Usage
 
 ```
-git clone https://github.com/agukrapo/simpler-mock-server.git
-cd simpler-mock-server
-make
+go install github.com/agukrapo/simpler-mock-server/cmd/sms@latest
+mkdir .sms_responses
+sms
 ```
-
-Then add a file inside `responses` subdir according to the desired http method: DELETE, GET, PATCH, POST and PUT.
-
-Be sure the file extension is inside `content-type-mapping.txt`.
 
 ## Default response status
 
