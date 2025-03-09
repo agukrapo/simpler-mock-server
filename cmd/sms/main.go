@@ -42,20 +42,16 @@ func run() error {
 	defer stop()
 
 	go func() {
-		if err := s.Start(ctx); err != nil {
-			log.Error().Err(err).Msg("Server start failed")
-		}
-		stop()
+		<-ctx.Done()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		s.Stop(ctx)
 	}()
 
 	log.Info().Msgf("Server started on %s", cfg.Address)
+	defer log.Info().Msg("Server stopped")
 
-	<-ctx.Done()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	s.Stop(ctx)
-
-	return nil
+	return s.Start(ctx)
 }
