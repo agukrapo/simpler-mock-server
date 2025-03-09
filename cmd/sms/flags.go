@@ -39,7 +39,7 @@ func processFlags() (stop bool) {
 		}
 
 		if bi, ok := debug.ReadBuildInfo(); ok {
-			fmt.Printf(bi.Main.Version)
+			fmt.Println(bi.Main.Version)
 		}
 
 		return true
