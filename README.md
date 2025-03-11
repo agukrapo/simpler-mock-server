@@ -10,6 +10,20 @@ mkdir .sms_responses
 sms
 ```
 
+To add a new route drop a file into the responses dir (default: `./.sms_responses`) subfolder that matches the route HTTP method
+
+### Example
+
+Executing
+```
+echo "world!" > .sms_responses/GET/hello.txt
+```
+
+will create a new `/hello` route we can call with
+```
+curl localhost:4321/hello
+```
+
 ## Default response status
 
 | Method | status |
@@ -21,8 +35,9 @@ sms
 | PUT    | 204    |
 
 Can be customized adding a prefix `{status}___` to the file:
-
-	500___a3b69b44-d562-11eb-b8bc-0242ac130003.json
+```
+.sms_responses/PATCH/api/people/500___a3b69b44-d562-11eb-b8bc-0242ac130003.json
+```
 
 ## Environment Variables
 
@@ -34,5 +49,5 @@ Can be customized adding a prefix `{status}___` to the file:
 - `METHOD_STATUS_MAP` - Request http method to response http status (default: `DELETE:202,GET:200,PATCH:204,POST:201,PUT:204`)
 
 
-# TODO
+## TODO
 - Better README
