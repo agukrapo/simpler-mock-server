@@ -25,6 +25,7 @@ lint:
 	@govulncheck ./...
 	@gosec ./...
 	@golangci-lint run
+	@docker container run --rm -i hadolint/hadolint hadolint - < Dockerfile
 
 deps:
 	@go install gotest.tools/gotestsum@latest
